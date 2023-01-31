@@ -2,11 +2,10 @@
 
 from socket import *
 import sys
-import re
 
 import pymysql
 from PyQt5.QtWidgets import *
-from PyQt5 import uic
+from PyQt5 import uic, QtCore, QtGui
 import threading
 
 form_class = uic.loadUiType("chat1.ui")[0]
@@ -34,6 +33,16 @@ class WindowClass(QMainWindow, form_class):
         self.join_btn.clicked.connect(self.create_acount) # 회원가입
 
         self.chat_add_btn.clicked.connect(self.create_chatroom) #채팅방 생성 버튼
+
+        # lineEdit 입력 제한
+        phone_re = QtCore.QRegExp("[0-9]{10,11}") # 휴대폰 번호
+        self.phone_lineEdit.setValidator(QtGui.QRegExpValidator(phone_re))
+        self.user_phone_lineEdit.setValidator(QtGui.QRegExpValidator(phone_re))
+
+        pw_re = QtCore.QRegExp("[a-zA-Z0-9]{5,24}") # 비밀번호
+        self.user_pass_lineEdit.setValidator(QtGui.QRegExpValidator(pw_re))
+        self.pass_lineEdit.setValidator(QtGui.QRegExpValidator(pw_re))
+
 
     def chat_open(self): # 1p 들어가기 버튼 클릭했을때 : 로그인
         print('button click')
@@ -73,19 +82,6 @@ class WindowClass(QMainWindow, form_class):
                 print('조회된 계정 없음')
                 self.login_label.setText('존재하지 않는 계정입니다.')
                 return
-
-    # 아이디 / 비밀번호 유효성 검사
-    # def check_id(self):
-    #     id = self.phone_lineEdit.text()
-    #     reg = r'^[0-9_]{10,11}$'
-    #     if not re.search(reg, id):
-    #         print('유효하지 않은 전화번호')
-    #         return False
-    #     else:
-    #         return True
-
-    # def check_pw(self):
-    #     pw = self.paww_lineEdit.text()
 
     def create_acount(self):
         print('회원가입')
@@ -136,18 +132,19 @@ class WindowClass(QMainWindow, form_class):
         self.client_socket.connect((ip, port))
 
     def send_chat(self):
-        senders_name = self.user_name_line_edit_1p.text() #ui사용자이름
-        print(1)
+        # senders_name = self.user_name_line_edit_1p.text() #ui사용자이름
+        senders_name = self.user[0] # 윗줄의 코드를 수정
+        # print(1)
         data = self.signal_textEdit.toPlainText() #
-        print(2)
+        # print(2)
         self.receive_listWidget.addItem(f'{senders_name} : {data}') #ui
-        print(3)
+        # print(3)
         message = (f'{senders_name} : {data}').encode('utf-8')
-        print(4)
+        # print(4)
         self.client_socket.send(message)
-        print(5)
+        # print(5)
         self.signal_textEdit.clear()
-        print(6)
+        # print(6)
 
     def receive_message(self, so):
         while True:
@@ -165,7 +162,7 @@ class WindowClass(QMainWindow, form_class):
         if text == '':
             return QMessageBox.information(self, '채팅 생성', '방 제목을 입력해주세요.')
 
-        reply = QMessageBox.question(self, '채팅 생성', f"방장:'{self.user[1]}'\n'{text}' 채팅방을 생성하시겠습니까?",
+        reply = QMessageBox.question(self, '채팅 생성', f"방장:'{self.user[0]}'\n'{text}' 채팅방을 생성하시겠습니까?",
                                      QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
 
         if reply == QMessageBox.Yes:
@@ -199,6 +196,17 @@ class WindowClass(QMainWindow, form_class):
         self.chat_list_tableWidget.setColumnWidth(0, 20)
         self.chat_list_tableWidget.horizontalHeader().setStretchLastSection(True)
 
+        # 테이블 셀 클릭 이벤트
+        self.chat_list_tableWidget.cellClicked.connect(self.select_chatroom)
+        # 이제 더블클릭 했을 때 채팅방 새 창으로 열기 만들면 됨
+
+
+    def select_chatroom(self, row):
+        r_num = self.chat_list_tableWidget.item(row, 0) # 방 번호
+        r_name = self.chat_list_tableWidget.item(row, 1) # 방 이름
+
+        room = (int(r_num.text()), r_name.text())
+        print(f'@{room[0]}번 : {room[1]}')
 
     def conn_fetch(self):
         con = pymysql.connect(host=self.HOST, user=self.USER, password=self.PASSWORD, db=self.DB, charset='utf8')
