@@ -17,6 +17,9 @@ class WindowClass(QMainWindow, form_class):
     USER = 'Team8'
     PASSWORD = 'xlavmfhwprxm8'
     DB = 't8_db'
+
+    user = None # (이름, 번호, 비밀번호) 튜플
+
     def __init__(self):
         super().__init__()
         self.setupUi(self)
@@ -52,13 +55,17 @@ class WindowClass(QMainWindow, form_class):
                 if password == pw: # 비밀번호가 일치할 때
                     print('phone / pass 일치, 로그인 확인')
                     # self.user_name_label_2p.setText(self.user_name_line_edit_1p.text())
-                    self.user_name_label_2p.setText(name)
+                    self.user = acount
                     self.stackedWidget.setCurrentIndex(1) # 페이지 이동
+                    print('페이지이동')
+                    self.user_name_label_2p.setText(name)
+                    print('이름출력')
                     self.list_up_room()  # 채팅방 목록 조회
+                    print('채팅방 목록 조회')
 
                     # 로그인 경고, 비밀번호 입력란 초기화
                     self.login_label.setText('')
-                    self.user_pass_lineEdit.text('')
+                    self.user_pass_lineEdit.setText('')
                 else:
                     print('phone / pass 불일치')
                     self.login_label.setText('비밀번호를 확인해주세요.')
@@ -79,7 +86,6 @@ class WindowClass(QMainWindow, form_class):
 
     # def check_pw(self):
     #     pw = self.paww_lineEdit.text()
-
 
     def create_acount(self):
         print('회원가입')
@@ -159,18 +165,18 @@ class WindowClass(QMainWindow, form_class):
         if text == '':
             return QMessageBox.information(self, '채팅 생성', '방 제목을 입력해주세요.')
 
-        reply = QMessageBox.question(self, '채팅 생성', f"'{text}' 채팅방을 생성하시겠습니까?",
+        reply = QMessageBox.question(self, '채팅 생성', f"방장:'{self.user[1]}'\n'{text}' 채팅방을 생성하시겠습니까?",
                                      QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
 
         if reply == QMessageBox.Yes:
             print(f'채팅방 [{text}] -- 생성 시도')
             with self.conn_commit() as con:
                 with con.cursor() as cur:
-                    sql = 'INSERT INTO t8_db.room (room_name) VALUES (%s)' # 채팅방 생성 쿼리
-                    cur.execute(sql, (text))
+                    sql = 'INSERT INTO t8_db.room (room_name, room_master) VALUES (%s, %s)' # 채팅방 생성 쿼리
+                    cur.execute(sql, (text, self.user[1]))
                     con.commit()
-                    QMessageBox.information(self, '완료', '채팅방이 생성되었습니다.')
-                    print('채팅방 생성')
+            QMessageBox.information(self, '완료', '채팅방이 생성되었습니다.')
+            print('채팅방 생성')
             self.list_up_room()  # 채팅 목록 조회
 
     def list_up_room(self): # 채팅 목록 조회
