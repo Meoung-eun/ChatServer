@@ -2,6 +2,7 @@
 
 from socket import *
 import sys
+import re
 
 import pymysql
 from PyQt5.QtWidgets import *
@@ -24,44 +25,103 @@ class WindowClass(QMainWindow, form_class):
 
         self.send_btn.clicked.connect(self.send_chat) #ui메시지전송버튼
         self.stackedWidget.setCurrentIndex(0) #스택위젯 0p 고정
+        self.acount_tabWidget.setCurrentIndex(0) # 로그인/가입 탭위젯 0
+
         self.chat_open_btn.clicked.connect(self.chat_open) # 로그인
+        self.join_btn.clicked.connect(self.create_acount) # 회원가입
 
         self.chat_add_btn.clicked.connect(self.create_chatroom) #채팅방 생성 버튼
 
-    def chat_open(self): # 1p 들어가기 버튼 클릭했을때 - 로그인
+    def chat_open(self): # 1p 들어가기 버튼 클릭했을때 : 로그인
         print('button click')
         phone = self.user_phone_lineEdit.text()
         password = self.user_pass_lineEdit.text()
 
-        with self.conn_fetch() as cur:
-            sql = f'SELECT user_name, user_phone, user_pass FROM users WHERE user_phone = "{phone}"'
-            cur.execute(sql)
-            if cur.fetchone() != None:
-                name, id, pw = cur.fetchone()
-            print(name, id, pw)
+        if phone == '' or password == '':
+            self.login_label.setText('휴대폰 번호와 비밀번호를 입력해주세요.')
+            return
 
-            # phone 번호 결과가 있으면
-            if id and pw:
-                if password == pw:
+        with self.conn_fetch() as cur:
+            sql = f"SELECT user_name, user_phone, user_pass FROM users WHERE user_phone = '{phone}';"
+            cur.execute(sql)
+            acount = cur.fetchone()
+
+            if acount: # 핸드폰 번호 조회 결과가 존재한다면
+                name, id, pw = acount
+
+                if password == pw: # 비밀번호가 일치할 때
                     print('phone / pass 일치, 로그인 확인')
                     # self.user_name_label_2p.setText(self.user_name_line_edit_1p.text())
                     self.user_name_label_2p.setText(name)
-                    self.stackedWidget.setCurrentIndex(1)
+                    self.stackedWidget.setCurrentIndex(1) # 페이지 이동
                     self.list_up_room()  # 채팅방 목록 조회
 
                     # 로그인 경고, 비밀번호 입력란 초기화
                     self.login_label.setText('')
                     self.user_pass_lineEdit.text('')
-
                 else:
                     print('phone / pass 불일치')
-                    self.login_label.setText('휴대폰 번호와 비밀번호를 확인해주세요.')
-
-            elif name == None:
-                print('존재하지 않는 계정')
+                    self.login_label.setText('비밀번호를 확인해주세요.')
+            else:
+                print('조회된 계정 없음')
                 self.login_label.setText('존재하지 않는 계정입니다.')
+                return
+
+    # 아이디 / 비밀번호 유효성 검사
+    # def check_id(self):
+    #     id = self.phone_lineEdit.text()
+    #     reg = r'^[0-9_]{10,11}$'
+    #     if not re.search(reg, id):
+    #         print('유효하지 않은 전화번호')
+    #         return False
+    #     else:
+    #         return True
+
+    # def check_pw(self):
+    #     pw = self.paww_lineEdit.text()
 
 
+    def create_acount(self):
+        print('회원가입')
+        new_user = (self.name_lineEdit.text(), self.phone_lineEdit.text(), self.pass_lineEdit.text())
+        if '' not in new_user:
+            print('가입 시도: ', new_user[0])
+            with self.conn_fetch() as cur:
+                sql = f"SELECT user_phone FROM users WHERE user_phone = '{new_user[1]}'"
+                cur.execute(sql)
+                acount = cur.fetchone()
+
+            if acount: # 휴대폰 번호가 이미 존재한다면
+                print('이미 존재하는 계정')
+                self.join_label.setText('이미 사용중인 휴대폰 번호입니다.')
+            else: # 휴대폰 번호가 존재하지 않는다면
+                msg = f'이름: {new_user[0]}\n휴대폰 번호: {new_user[1]}\n비밀번호: {new_user[2]}\n가입하시겠습니까?'
+                reply = QMessageBox.question(self, '회원가입', msg,
+                                             QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+
+                if reply == QMessageBox.Yes:
+                    print('가입 완료')
+                    with self.conn_commit() as con:
+                        with con.cursor() as cur:
+                            sql = 'INSERT INTO users(user_name, user_phone, user_pass)' \
+                                  'VALUES (%s, %s, %s)'
+                            cur.execute(sql, new_user)
+                            con.commit()
+
+                    QMessageBox.information(self, '완료', '가입이 완료되었습니다.')
+                    print('가입 완료')
+
+                    # 회원가입 입력칸 초기화
+                    self.name_lineEdit.setText('')
+                    self.phone_lineEdit.setText('')
+                    self.pass_lineEdit.setText('')
+                    self.join_label.setText('')
+                    self.acount_tabWidget.setCurrentIndex(0)
+
+        else:
+            print('빈 칸 존재')
+            self.join_label.setText('모든 항목을 입력해주세요.')
+            return
 
     def initialize_socket(self):
         ip = '127.0.0.1'
