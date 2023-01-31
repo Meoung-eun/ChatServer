@@ -11,8 +11,8 @@ class ChatserverMulti:
         self.clients=[]               # 접속된 클라이언트 소켓 목록
         self.final_received_message='' # 최종 수신 메시지
         self.s_sock=socket(AF_INET,SOCK_STREAM)           # 소켓생성
-        self.ip = '10.10.21.122'
-        self.port= 2700
+        self.ip = '127.0.0.1'
+        self.port= 9000
         self.s_sock.setsockopt(SOL_SOCKET,SO_REUSEADDR,1) # 주소 재사용
         self.s_sock.bind((self.ip,self.port))             # 연결대기
         print('클라이언트 대기중...')
@@ -27,7 +27,7 @@ class ChatserverMulti:
             if client not in self.clients:      # 만약에 연결클라이언트가 접속된 클라이어트 소켓목록에 없으면
                 self.clients.append(client)     # 접속된 소켓을 목록에 추가
             print(f'{ip}:{str(port)}가 연결되었습니다')
-            cth=Thread(target=self.receive_message,args=(c_socket,))    # 수신스레드
+            cth=Thread(target=self.receive_message,args=(c_socket,))    # 수신 스레드
             cth.start()                                                 # 스레드 시작
 
     # 데이터를 수신하여 모든 클라이언트에게 전송
