@@ -1,2 +1,0 @@
-# ChatServer
-NetworkServer Project
