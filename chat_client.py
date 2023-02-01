@@ -1,5 +1,5 @@
 # GUI 채팅 클라이언트
-
+import json
 from socket import *
 import sys
 
@@ -11,11 +11,6 @@ import threading
 form_class = uic.loadUiType("chat1.ui")[0]
 
 class WindowClass(QMainWindow, form_class):
-    HOST = '10.10.21.110'
-    PORT = 3306
-    USER = 'Team8'
-    PASSWORD = 'xlavmfhwprxm8'
-    DB = 't8_db'
 
     user = None # (이름, 번호, 비밀번호) 튜플
 
@@ -156,6 +151,25 @@ class WindowClass(QMainWindow, form_class):
             self.receive_listWidget.addItem(f'{recv_data}')
         so.close()
 
+    def send_data(self, data:dict, idf:str): # 데이터를 전송하는 함수
+        # DB에 넘겨줄 데이터를 포함하는 딕셔너리data와 식별자idf를 인자로 받음
+
+        '''
+        cl0 : 채팅방 생성
+        cl1 : 채팅방 조회
+        cht : 채팅
+        '''
+
+
+        message = json.dumps(data) # 딕셔너리를 바이너리화 하는 json.dumps 메서드
+        self.client_socket.send('cr0' + message.encode()) # 바이너리를 바이트로 바꿔서 전송
+        print('서버에 전송')
+
+        # 서버는 KEY 'role'의 VALUE에 따라 특정한 함수를 실행
+        # 서버로부터 응답을 받아 값으로 리턴해야 함
+        return '확인'
+
+
     def create_chatroom(self):
         text = self.chat_name_line_edit.text()
         print(f'방제목: {text}')
@@ -167,20 +181,32 @@ class WindowClass(QMainWindow, form_class):
 
         if reply == QMessageBox.Yes:
             print(f'채팅방 [{text}] -- 생성 시도')
-            with self.conn_commit() as con:
-                with con.cursor() as cur:
-                    sql = 'INSERT INTO t8_db.room (room_name, room_master) VALUES (%s, %s)' # 채팅방 생성 쿼리
-                    cur.execute(sql, (text, self.user[1]))
-                    con.commit()
+
+            # @DB의 room 테이블에 새로운 행을 insert하는 코드 : 서버로 이전
+            # with self.conn_commit() as con:
+            #     with con.cursor() as cur:
+            #         sql = 'INSERT INTO t8_db.room (room_name, room_master) VALUES (%s, %s)' # 채팅방 생성 쿼리
+            #         cur.execute(sql, (text, self.user[1]))
+            #         con.commit()
+
+            # 방 생성에 필요한 데이터를 담은 room 딕셔너리
+            room = {'user': self.user[1], 'room_name': text}
+
+            result = self.send_data(room, 'cr0') # 서버에 room 딕셔너리를 전송, 결과 반환
+            print(result) # 결과 확인용
+
             QMessageBox.information(self, '완료', '채팅방이 생성되었습니다.')
             print('채팅방 생성')
-            self.list_up_room()  # 채팅 목록 조회
+
+            # self.list_up_room()  # 채팅 목록 조회
 
     def list_up_room(self): # 채팅 목록 조회
-        with self.conn_fetch() as cur:
-                sql = 'SELECT * FROM t8_db.room;'  # 채팅방 조회 쿼리
-                cur.execute(sql)
-                rows = cur.fetchall() # 방 목록
+        # @이하 서버로 이전, rows에 값을 받아옴
+
+        # with self.conn_fetch() as cur:
+        #         sql = 'SELECT * FROM t8_db.room;'  # 채팅방 조회 쿼리
+        #         cur.execute(sql)
+        #         rows = cur.fetchall() # 방 목록
 
         # 테이블 행 / 열 설정
         self.chat_list_tableWidget.setColumnCount(2)
@@ -198,7 +224,7 @@ class WindowClass(QMainWindow, form_class):
 
         # 테이블 셀 클릭 이벤트
         self.chat_list_tableWidget.cellClicked.connect(self.select_chatroom)
-        # 이제 더블클릭 했을 때 채팅방 새 창으로 열기 만들면 됨
+        # # 이제 더블클릭 했을 때 채팅방 새 창으로 열기 만들면 됨
 
 
     def select_chatroom(self, row):
@@ -207,15 +233,6 @@ class WindowClass(QMainWindow, form_class):
 
         room = (int(r_num.text()), r_name.text())
         print(f'@{room[0]}번 : {room[1]}')
-
-    def conn_fetch(self):
-        con = pymysql.connect(host=self.HOST, user=self.USER, password=self.PASSWORD, db=self.DB, charset='utf8')
-        cur = con.cursor()
-        return cur
-
-    def conn_commit(self):
-        con = pymysql.connect(host=self.HOST, user=self.USER, password=self.PASSWORD, db=self.DB, charset='utf8')
-        return con
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
